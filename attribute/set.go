@@ -18,7 +18,6 @@ import (
 	"encoding/json"
 	"reflect"
 	"sort"
-	"sync"
 )
 
 type (
@@ -55,12 +54,6 @@ var (
 		equivalent: Distinct{
 			iface: [0]KeyValue{},
 		},
-	}
-
-	// sortables is a pool of Sortables used to create Sets with a user does
-	// not provide one.
-	sortables = sync.Pool{
-		New: func() interface{} { return new(Sortable) },
 	}
 )
 
@@ -191,9 +184,7 @@ func NewSet(kvs ...KeyValue) Set {
 	if len(kvs) == 0 {
 		return empty()
 	}
-	srt := sortables.Get().(*Sortable)
-	s, _ := NewSetWithSortableFiltered(kvs, srt, nil)
-	sortables.Put(srt)
+	s, _ := NewSetWithSortableFiltered(kvs, nil, nil)
 	return s
 }
 
@@ -201,12 +192,12 @@ func NewSet(kvs ...KeyValue) Set {
 // NewSetWithSortableFiltered for more details.
 //
 // This call includes a Sortable option as a memory optimization.
-func NewSetWithSortable(kvs []KeyValue, tmp *Sortable) Set {
+func NewSetWithSortable(kvs []KeyValue, _ *Sortable) Set {
 	// Check for empty set.
 	if len(kvs) == 0 {
 		return empty()
 	}
-	s, _ := NewSetWithSortableFiltered(kvs, tmp, nil)
+	s, _ := NewSetWithSortableFiltered(kvs, nil, nil)
 	return s
 }
 
@@ -220,9 +211,7 @@ func NewSetWithFiltered(kvs []KeyValue, filter Filter) (Set, []KeyValue) {
 	if len(kvs) == 0 {
 		return empty(), nil
 	}
-	srt := sortables.Get().(*Sortable)
-	s, filtered := NewSetWithSortableFiltered(kvs, srt, filter)
-	sortables.Put(srt)
+	s, filtered := NewSetWithSortableFiltered(kvs, nil, filter)
 	return s, filtered
 }
 
@@ -249,19 +238,15 @@ func NewSetWithFiltered(kvs []KeyValue, filter Filter) (Set, []KeyValue) {
 //
 // The second []KeyValue return value is a list of attributes that were
 // excluded by the Filter (if non-nil).
-func NewSetWithSortableFiltered(kvs []KeyValue, tmp *Sortable, filter Filter) (Set, []KeyValue) {
+func NewSetWithSortableFiltered(kvs []KeyValue, _ *Sortable, filter Filter) (Set, []KeyValue) {
 	// Check for empty set.
 	if len(kvs) == 0 {
 		return empty(), nil
 	}
 
-	*tmp = kvs
-
 	// Stable sort so the following de-duplication can implement
 	// last-value-wins semantics.
-	sort.Stable(tmp)
-
-	*tmp = nil
+	sliceSortStable(kvs)
 
 	position := len(kvs) - 1
 	offset := position - 1

@@ -225,3 +225,18 @@ func args(m reflect.Method) []reflect.Value {
 	}
 	return out
 }
+
+var (
+	sinkSet   attribute.Set
+	sinkAttrs []attribute.KeyValue
+)
+
+func BenchmarkNewSetWithSortableFiltered(b *testing.B) {
+	attrs := []attribute.KeyValue{attribute.Int("C", 3), attribute.Int("A", 1), attribute.Int("B", 2)}
+	srt := new(attribute.Sortable)
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		sinkSet, sinkAttrs = attribute.NewSetWithSortableFiltered(attrs, srt, nil)
+	}
+}
