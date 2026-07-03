@@ -156,30 +156,34 @@ func (p *pipeline) produce(ctx context.Context, rm *metricdata.ResourceMetrics) 
 	}
 
 	rm.Resource = p.resource
-	rm.ScopeMetrics = internal.ReuseSlice(rm.ScopeMetrics, len(p.aggregations))
+	scopeMetrics := internal.ReuseSlice(rm.ScopeMetrics, len(p.aggregations))
 
 	i := 0
 	for scope, instruments := range p.aggregations {
-		rm.ScopeMetrics[i].Metrics = internal.ReuseSlice(rm.ScopeMetrics[i].Metrics, len(instruments))
+		metrics := internal.ReuseSlice(scopeMetrics[i].Metrics, len(instruments))
 		j := 0
 		for _, inst := range instruments {
-			data := rm.ScopeMetrics[i].Metrics[j].Data
+			data := metrics[j].Data
 			if n := inst.compAgg(&data); n > 0 {
-				rm.ScopeMetrics[i].Metrics[j].Name = inst.name
-				rm.ScopeMetrics[i].Metrics[j].Description = inst.description
-				rm.ScopeMetrics[i].Metrics[j].Unit = inst.unit
-				rm.ScopeMetrics[i].Metrics[j].Data = data
+				metrics[j] = metricdata.Metrics{
+					Name:        inst.name,
+					Description: inst.description,
+					Unit:        inst.unit,
+					Data:        data,
+				}
 				j++
 			}
 		}
-		rm.ScopeMetrics[i].Metrics = rm.ScopeMetrics[i].Metrics[:j]
-		if len(rm.ScopeMetrics[i].Metrics) > 0 {
-			rm.ScopeMetrics[i].Scope = scope
+		if j > 0 {
+			scopeMetrics[i] = metricdata.ScopeMetrics{
+				Scope:   scope,
+				Metrics: metrics[:j],
+			}
 			i++
 		}
 	}
 
-	rm.ScopeMetrics = rm.ScopeMetrics[:i]
+	rm.ScopeMetrics = scopeMetrics[:i]
 
 	return err
 }
